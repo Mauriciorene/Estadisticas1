@@ -12,7 +12,10 @@ export default function GraficoGeneros({ dataGeneros }) {
         width={screenWidth - (screenWidth * 0.1)}
         height={300}
         chartConfig={{
-            color: (opacity = 1) => `rgba(102, 204, 255, ${opacity})`,
+          backgroundColor: "#fff",  // Color de fondo (no afecta los cuadrados)
+          backgroundGradientFrom: "#f0f0f0",  // Color inicial del gradiente
+          backgroundGradientTo: "#f0f0f0",    // Color final del gradiente
+          color: (opacity = 1) => `rgba(0, 123, 255, ${opacity})`,  // Cambia los cuadrados del gráfico
         }}
         accessor={"population"}
         paddingLeft={45}
