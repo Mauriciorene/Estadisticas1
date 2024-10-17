@@ -1,24 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, ScrollView } from 'react-native';
+import { StyleSheet, View, ScrollView, ActivityIndicator } from 'react-native';
 import GraficoSalarios from './src/components/GraficoSalarios';
-import GraficoGeneros from './/src/components/GraficoGeneros';
-import Formulario from './src/components/Formulario';
+import GraficoGeneros from './src/components/GraficoGeneros';
 import GraficoReporteEnfermedades from './src/components/GraficoReporteEnfermedades';
 import GraficoBezier from './src/components/GraficoBezier';
+import GraficoProgreso from './src/components/GraficoProgreso';
+import Formulario from './src/components/Formulario';
 import { collection, getDocs, query } from 'firebase/firestore';
+import db from './database/firebaseconfig'; // Conexión Firebase
 
-//Importación de conexión a firebase
-import db from './database/firebaseconfig';
+export default function App() {
+  const [bandera, setBandera] = useState(false); // Control para recargar datos
+  const [loading, setLoading] = useState(true); // Indicador de carga
 
-
-export default function Graficos() {
-
-  const [bandera, setBandera] = useState(false); // Variable bandera
   const [dataSalarios, setDataSalarios] = useState({
     labels: [''],
     datasets: [{ data: [0] }]
   });
-  const [dataGeneros, setDataGeneros] = useState([]); // Para almacenar datos de géneros
+
+    const [dataGeneros, setDataGeneros] = useState([]); // Para almacenar datos de géneros
+  
+  const [dataProgreso, setDataProgreso] = useState({
+    labels: [''],
+    data: [0]
+  });
 
   const dataReporteEnfermedades = [
     { date: "2017-01-05", count: 8 }, 
@@ -46,7 +51,7 @@ export default function Graficos() {
     { date: "2017-12-05", count: 4 },
     { date: "2017-12-19", count: 7 } 
   ];
-  
+
   // Carga de datos de salarios
   useEffect(() => {
     const recibirDatosSalarios = async () => {
@@ -88,14 +93,9 @@ export default function Graficos() {
         let femenino = 0;
 
         querySnapshot.forEach((doc) => {
-          const datosBD = doc.data();
-          const { genero } = datosBD;
-
-          if (genero === "Masculino") {
-            masculino += 1; // Suma para Masculino
-          } else if (genero === "Femenino") {
-            femenino += 1; // Suma para Femenino
-          }
+          const { genero } = doc.data();
+          if (genero === "Masculino") masculino += 1; // Suma para Masculino
+          else if (genero === "Femenino") femenino += 1; // Suma para Femenino
         });
 
         // Formatear datos para el gráfico de pastel
@@ -103,18 +103,27 @@ export default function Graficos() {
           {
             name: "Masculino",
             population: masculino,
-            color: "rgba(131, 167, 234, 0.5)",  // Azul con 50% de intensidad
+            color: "rgba(131, 167, 234, 0.5)",
             legendFontColor: "#7F7F7F",
             legendFontSize: 12
           },
           {
             name: "Femenino",
             population: femenino,
-            color: "rgba(255, 105, 180, 0.5)",  // Rosa con 50% de intensidad
+            color: "rgba(255, 105, 180, 0.5)",
             legendFontColor: "#7F7F7F",
             legendFontSize: 12
           }
         ];
+
+        totalPersonas = masculino + femenino;
+
+        const progresos = [masculino/totalPersonas, femenino/totalPersonas]
+
+        setDataProgreso({
+          labels: ['Hombres', 'Mujeres'],
+          data: progresos
+        });
 
         setDataGeneros(totalData);
         console.log(totalData);
@@ -126,18 +135,31 @@ export default function Graficos() {
     recibirDatosGeneros();
   }, [bandera]);
 
+  useEffect(() => {
+    if (dataSalarios && dataGeneros && dataProgreso) {
+      setLoading(false); // Cuando todos los datos estén listos, quitar el indicador de carga
+    }
+  }, [dataSalarios, dataGeneros, dataProgreso]);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container} >
+    <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollView}>
-        {/* <Formulario setBandera={setBandera}/> */}
+        <Formulario setBandera={setBandera} />
         <GraficoSalarios dataSalarios={dataSalarios}/>
         <GraficoBezier dataSalarios={dataSalarios}/>
         <GraficoGeneros dataGeneros={dataGeneros}/>
         <GraficoReporteEnfermedades dataReporteEnfermedades={dataReporteEnfermedades}/>
+        <GraficoProgreso dataProgreso={dataProgreso} colors={['rgba(131, 167, 234, 0.5)', 'rgba(255, 105, 180, 0.5)']}/>
       </ScrollView>
-
     </View>
-
   );
 }
 
@@ -149,8 +171,9 @@ const styles = StyleSheet.create({
   scrollView: {
     padding: 10,
   },
-  graphContainer: {
-    marginTop: 10,
-    padding: 10,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-}); 
+});
