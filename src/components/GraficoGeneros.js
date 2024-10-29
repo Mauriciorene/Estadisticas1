@@ -1,40 +1,49 @@
+import React, { useRef } from 'react';
 import { StyleSheet, View, Dimensions, Button, Alert } from 'react-native';
 import { PieChart } from "react-native-chart-kit";
 import { jsPDF } from 'jspdf';
 import * as FileSystem from 'expo-file-system'; // Manejo de archivos
 import * as Sharing from 'expo-sharing'; // Para compartir archivos
+import { captureRef } from 'react-native-view-shot'; // Para capturar el gráfico como imagen
 
 export default function GraficoGeneros({ dataGeneros }) {
-
-  let screenWidth = Dimensions.get("window").width;
+  const chartRef = useRef();
+  const screenWidth = Dimensions.get("window").width;
 
   // Función para generar y compartir el PDF
   const generarPDF = async () => {
     try {
+      // Capturar el gráfico como imagen
+      const uri = await captureRef(chartRef, {
+        format: "png",
+        quality: 1,
+      });
+
       // Crear una instancia de jsPDF
       const doc = new jsPDF();
-
-      // Agregar título al PDF
       doc.text("Reporte de Géneros", 10, 10);
 
-      // Verificar si dataGeneros existe y agregar los datos al PDF
+      // Leer la imagen capturada y agregarla al PDF
+      const chartImage = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      doc.addImage(`data:image/png;base64,${chartImage}`, "PNG", 10, 20, 180, 100);
+
+      // Agregar datos de texto al PDF
       if (dataGeneros && dataGeneros.length > 0) {
         dataGeneros.forEach((genero, index) => {
-          doc.text(`${genero.name}: ${genero.population}`, 10, 20 + index * 10); // Formato de los datos
+          doc.text(`${genero.name}: ${genero.population}`, 10, 130 + index * 10); // Ajustar posición
         });
       } else {
         throw new Error('Datos de géneros no válidos');
       }
 
-      // Generar el PDF como base64
+      // Guardar el archivo PDF
       const pdfBase64 = doc.output('datauristring').split(',')[1];
-
-      // Definir la ruta temporal para el archivo PDF en el sistema de archivos del dispositivo
       const fileUri = `${FileSystem.documentDirectory}reporte_generos.pdf`;
 
-      // Guardar el archivo PDF
       await FileSystem.writeAsStringAsync(fileUri, pdfBase64, {
-        encoding: FileSystem.EncodingType.Base64
+        encoding: FileSystem.EncodingType.Base64,
       });
 
       // Compartir el archivo PDF
@@ -48,23 +57,25 @@ export default function GraficoGeneros({ dataGeneros }) {
 
   return (
     <View style={styles.container}>
-      <PieChart
-        data={dataGeneros}
-        width={screenWidth - (screenWidth * 0.1)}
-        height={300}
-        chartConfig={{
-          backgroundColor: "#fff",
-          backgroundGradientFrom: "#f0f0f0",
-          backgroundGradientTo: "#f0f0f0",
-          color: (opacity = 1) => `rgba(0, 123, 255, ${opacity})`,
-        }}
-        accessor={"population"}
-        paddingLeft={45}
-        backgroundColor={"transparent"}
-        style={{
-          borderRadius: 10
-        }}
-      />
+      <View ref={chartRef} collapsable={false} style={styles.chartContainer}>
+        <PieChart
+          data={dataGeneros}
+          width={screenWidth - (screenWidth * 0.1)}
+          height={300}
+          chartConfig={{
+            backgroundColor: "#fff",
+            backgroundGradientFrom: "#f0f0f0",
+            backgroundGradientTo: "#f0f0f0",
+            color: (opacity = 1) => `rgba(0, 123, 255, ${opacity})`,
+          }}
+          accessor={"population"}
+          paddingLeft={45}
+          backgroundColor={"transparent"}
+          style={{
+            borderRadius: 10,
+          }}
+        />
+      </View>
 
       {/* Botón para generar y compartir PDF */}
       <Button title="Generar y Compartir PDF" onPress={generarPDF} />
@@ -75,5 +86,9 @@ export default function GraficoGeneros({ dataGeneros }) {
 const styles = StyleSheet.create({
   container: {
     margin: 10,
+  },
+  chartContainer: {
+    alignItems: 'center',
+    marginVertical: 10,
   },
 });
